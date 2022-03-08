@@ -86,6 +86,83 @@ app.post('/hobbies', async (req, res) => {
     res.status(401).send(errors);
   }
 });
+
+app.patch('/addHobbyToUser/:userId', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const { hobbyId } = req.body;
+  const errors = [];
+  let user = null;
+  let hobby = null;
+  let userHobby = null;
+
+  if (typeof hobbyId !== 'number' || isNaN(userId))
+    errors.push('hobbyId and userId should be a number');
+  else {
+    hobby = await prisma.hobbies.findUnique({ where: { id: hobbyId } });
+    user = await prisma.users.findUnique({ where: { id: userId } });
+    userHobby = await prisma.usersHobbies.findFirst({
+      where: { userId: userId, hobbyId: hobbyId }
+    });
+  }
+
+  if (!user) errors.push('User with this id does not exist!');
+  if (!hobby) errors.push('Hobby with this id does not exist!');
+  if (userHobby) errors.push('This user is already linked to this hobby!');
+
+  if (errors.length === 0) {
+    await prisma.usersHobbies.create({
+      data: { userId: userId, hobbyId: hobbyId, active: true }
+    });
+    const userWithNewHobby = await prisma.users.findUnique({
+      where: {
+        id: userId
+      },
+      include: { hobbies: { include: { hobby: true } } }
+    });
+    res.send(userWithNewHobby);
+  } else {
+    res.status(401).send(errors);
+  }
+});
+
+app.patch('/removeHobbyFromUser/:userId', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const { hobbyId } = req.body;
+  const errors = [];
+  let user = null;
+  let hobby = null;
+  let userHobby = null;
+
+  if (typeof hobbyId !== 'number' || isNaN(userId))
+    errors.push('hobbyId and userId should be a number');
+  else {
+    hobby = await prisma.hobbies.findUnique({ where: { id: hobbyId } });
+    user = await prisma.users.findUnique({ where: { id: userId } });
+    userHobby = await prisma.usersHobbies.findFirst({
+      where: { userId: userId, hobbyId: hobbyId }
+    });
+  }
+
+  if (!user) errors.push('User with this id does not exist!');
+  if (!hobby) errors.push('Hobby with this id does not exist!');
+  if (!userHobby) errors.push('This user is not linked to this hobby!');
+
+  if (errors.length === 0) {
+    await prisma.usersHobbies.deleteMany({
+      where: { userId: userId, hobbyId: hobbyId, active: true }
+    });
+    const userWithoutNewHobby = await prisma.users.findUnique({
+      where: {
+        id: userId
+      },
+      include: { hobbies: { include: { hobby: true } } }
+    });
+    res.send(userWithoutNewHobby);
+  } else {
+    res.status(401).send(errors);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server up and running: http://localhost:${PORT}`);
 });
